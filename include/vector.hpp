@@ -1,5 +1,8 @@
 #include <cstddef>
 
+namespace my_std
+{
+
 template <typename T>
 struct my_vector 
 {
@@ -56,3 +59,5 @@ struct my_vector
     void swap(my_vector& other) noexcept;
 
 };
+
+} // namespace my_std

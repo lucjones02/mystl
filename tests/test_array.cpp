@@ -5,7 +5,7 @@
 
 TEST_CASE("array bring-up", "[ARRAY]")
 {
-    my_array<uint32_t, 4> arr = {0, 1, 2, 3};
+    my_std::array<uint32_t, 4> arr = {0, 1, 2, 3};
 
     for (uint32_t i = 0; i < arr.size(); i++)
     {
@@ -38,8 +38,8 @@ TEST_CASE("array bring-up", "[ARRAY]")
 
 TEST_CASE("array swap", "[ARRAY]")
 {
-    my_array<uint32_t, 4> arr0 {0, 0, 0, 0};
-    my_array<uint32_t, 4> arr1 {1, 1, 1, 1};
+    my_std::array<uint32_t, 4> arr0 {0, 0, 0, 0};
+    my_std::array<uint32_t, 4> arr1 {1, 1, 1, 1};
 
     arr0.swap(arr1);
 
