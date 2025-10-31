@@ -10,6 +10,7 @@ FetchContent_MakeAvailable(Catch2)
 
 set(SOURCES 
     ${PROJECT_SOURCE_DIR}/tests/test_array.cpp
+    ${PROJECT_SOURCE_DIR}/tests/test_vector.cpp
 )
 
 add_executable(test ${SOURCES})
