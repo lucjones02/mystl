@@ -40,6 +40,36 @@ struct vector
             ++_data_end;
         }
     }
+
+    vector(const vector& other)
+    {
+        allocate(other.capacity());
+
+        for (std::size_t index {0}; index < other.size(); ++index)
+        {
+            new (_data_end) T{other[index]};
+            ++_data_end;
+        }
+    }
+
+    vector(vector&& other)
+    {
+        swap(other);
+    }
+
+    vector& operator=(const vector& other)
+    {
+        vector tmp {other};
+        swap(tmp);
+        return *this;
+    }
+
+    vector& operator=(vector&& other)
+    {
+        vector tmp {std::move(other)};
+        swap(tmp);
+        return *this;
+    }
     
     ~vector()
     {

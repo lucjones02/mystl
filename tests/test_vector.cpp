@@ -75,8 +75,7 @@ TEST_CASE("vector bring-up", "[VECTOR]")
         REQUIRE(vec.capacity() == vec_size);
     }
 
-    SECTION("clear")
-    {
+    SECTION("clear") {
         constexpr uint32_t init_value = 0xdeadbeef;
         constexpr std::size_t vec_size = 16;
 
@@ -85,6 +84,68 @@ TEST_CASE("vector bring-up", "[VECTOR]")
 
         REQUIRE(vec.size() == 0);
         REQUIRE(vec.capacity() == vec_size);
+    }
+}
+
+TEST_CASE("assignments bring-up", "[VECTOR]")
+{
+    constexpr uint32_t init_value = 0xdeadbeef;
+    constexpr std::size_t vec_size = 16;
+
+    my_std::vector<uint32_t> vec(vec_size, init_value);
+
+    SECTION("copy constructor")
+    {
+        my_std::vector<uint32_t> copied_vec {vec};
+
+        REQUIRE(copied_vec.size() == vec_size);
+        REQUIRE(copied_vec.capacity() == vec_size);
+        REQUIRE(copied_vec[0] == init_value);
+
+        REQUIRE(vec.size() == vec_size);
+        REQUIRE(vec.capacity() == vec_size);
+        REQUIRE(vec[0] == init_value);
+    }
+
+    SECTION("copy assignment")
+    {
+        my_std::vector<uint32_t> copied_vec {1};
+        copied_vec = vec;
+
+        REQUIRE(copied_vec.size() == vec_size);
+        REQUIRE(copied_vec.capacity() == vec_size);
+        REQUIRE(copied_vec[0] == init_value);
+
+        REQUIRE(vec.size() == vec_size);
+        REQUIRE(vec.capacity() == vec_size);
+        REQUIRE(vec[0] == init_value);
+    }
+
+    SECTION("move constructor")
+    {
+        my_std::vector<uint32_t> copied_vec {std::move(vec)};
+
+        REQUIRE(copied_vec.size() == vec_size);
+        REQUIRE(copied_vec.capacity() == vec_size);
+        REQUIRE(copied_vec[0] == init_value);
+
+        REQUIRE(vec.size() == 0);
+        REQUIRE(vec.capacity() == 0);
+        REQUIRE(vec._data_begin == nullptr);
+    }
+
+    SECTION("move assignment")
+    {
+        my_std::vector<uint32_t> copied_vec {1};
+        copied_vec = std::move(vec);
+
+        REQUIRE(copied_vec.size() == vec_size);
+        REQUIRE(copied_vec.capacity() == vec_size);
+        REQUIRE(copied_vec[0] == init_value);
+
+        REQUIRE(vec.size() == 0);
+        REQUIRE(vec.capacity() == 0);
+        REQUIRE(vec._data_begin == nullptr);
     }
 }
 
