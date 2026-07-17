@@ -1,7 +1,9 @@
+#include <algorithm>
 #include <concepts>
 #include <cstddef>
 #include <functional>
 #include <iterator>
+#include <type_traits>
 #include <unordered_set>
 #include <utility>
 #include <vector>
