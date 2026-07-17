@@ -410,7 +410,7 @@ public:
 
     std::size_t bucket_size(std::size_t n) const;
 
-    std::size_t bucket(const Key& k)
+    std::size_t bucket(const Key& k) const
     {
         return std::hash<Key> {}(k) % _bucket_count;
     }
