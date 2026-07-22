@@ -98,6 +98,11 @@ namespace my_std
  * will give us the position of the first element in the bucket, if nullptr
  * then the bucket is currently empty
  *
+ *  - so for deletion, because we are allowed for it to be worst case linear
+ *    what we will do is if the deleted key is in the first contact area and
+ *    if that bucket has elements in the backup collision area, we will move
+ *    the first backup collision element into the first contact area so we can
+ *    guarantee that any pointer in the lut is in the first contact area
  */
 
 template<typename Key>
@@ -127,14 +132,14 @@ private:
         friend class hash_set;
         using container_t = hash_set<value_type>;
 
-        hash_set_iterator(node* current, container_t* container) :
+        hash_set_iterator(const node* current, const container_t* container) :
             _current(current),
             _container(container)
         {
         }
 
-        node*        _current {nullptr};
-        container_t* _container {nullptr};
+        const node*        _current {nullptr};
+        const container_t* _container {nullptr};
 
     public:
         using value_type        = Key;
@@ -213,6 +218,7 @@ private:
     iterator _sentinal {&_sentinal_node, this};
 
     node* _first_contact_begin {nullptr};
+    node* _first_contact_end {nullptr};
     node* _backup_collision_begin {nullptr};
     node* _backup_collision_end {nullptr};
     node* _alloc_end {nullptr};
@@ -222,12 +228,41 @@ private:
 
     node** _bucket_lut {nullptr};
 
+    std::vector<node*> _available_slots_first_contact {};
+    std::vector<node*> _available_slots_backup_collision {};
+
     static constexpr std::size_t ELEMENTS_PER_FIRST_CONTACT_SLOT = 1;
 
 private:
     bool _is_bucket_empty(const std::size_t n) const
     {
         return _bucket_lut[n] == nullptr;
+    }
+
+    enum class area_tag
+    {
+        first_contact_area,
+        backup_collision_area,
+    };
+
+    template<area_tag tag>
+    node* _get_first_available_slot()
+    {
+        if constexpr (tag == area_tag::first_contact_area) {
+            if (!_available_slots_first_contact.empty()) {
+                node* slot = _available_slots_first_contact.back();
+                _available_slots_first_contact.pop_back();
+                return slot;
+            }
+        }
+        else if constexpr (tag == area_tag::backup_collision_area) {
+            if (!_available_slots_backup_collision.empty()) {
+                node* slot = _available_slots_backup_collision.back();
+                _available_slots_backup_collision.pop_back();
+                return slot;
+            }
+        }
+        return nullptr;
     }
 
 private:
@@ -320,7 +355,7 @@ public:
              ++bucket_index)
         {
             if (!_is_bucket_empty(bucket_index)) {
-                return _bucket_lut[bucket_index];
+                return iterator {_bucket_lut[bucket_index], this};
             }
         }
 
@@ -360,35 +395,77 @@ public:
 
 private:
     template<typename key_t>
-    requires std::is_same_v<std::remove_cvref_t<key_t>, Key>
-    std::pair<iterator_t, bool> _insert_impl(key_t&& k)
+    requires std::is_same_v<std::remove_cvref_t<key_t>, value_type>
+    auto _insert_impl(key_t&& k) -> std::pair<iterator, bool>
     {
         const std::size_t bucket_index = bucket(k);
+        const auto        hash_func = std::hash<std::remove_cvref_t<key_t>> {};
 
         if ((_element_count + 1) > max_load_factor() * bucket_count()) {
             const std::size_t new_bucket_count =
                 std::min(_rehash_policy(_bucket_count), max_bucket_count());
+
+            // rehash
         }
 
         if (_is_bucket_empty(bucket_index)) {
-            _bucket_lut[bucket_index] = _first_contact_begin;
-            new (_first_contact_begin) node {nullptr, std::forward<key_t>(k)};
-            ++_first_contact_begin;
+            node* replacement_slot =
+                _get_first_available_slot<area_tag::first_contact_area>();
+            if (replacement_slot == nullptr) {
+                _bucket_lut[bucket_index] = _first_contact_end;
+                new (_first_contact_end) node {nullptr, std::forward<key_t>(k)};
+                ++_first_contact_end;
+            }
+            else {
+                _bucket_lut[bucket_index] = replacement_slot;
+                new (replacement_slot) node {nullptr, std::forward<key_t>(k)};
+            }
 
-            return {nullptr, true};
+            return std::make_pair(iterator {_bucket_lut[bucket_index], this},
+                                  true);
         }
 
-        iterator_t it = _bucket_lut[bucket_index];
+        node* it = _bucket_lut[bucket_index];
         if constexpr (ELEMENTS_PER_FIRST_CONTACT_SLOT == 1) {
-            const bool is_single_element_bucket = (it->next == nullptr);
+
+            while (it->next != nullptr) {
+                if (hash_func(it->key) == hash_func(k)) {
+                    return std::make_pair(iterator {it, this}, false);
+                }
+                it = it->next;
+            }
+
+            node* replacement_slot =
+                _get_first_available_slot<area_tag::first_contact_area>();
+            if (replacement_slot == nullptr) {
+                new (_backup_collision_end)
+                    node {nullptr, std::forward<key_t>(k)};
+                it->next = _backup_collision_end;
+                ++_backup_collision_end;
+            }
+            else {
+                _bucket_lut[bucket_index] = replacement_slot;
+                new (replacement_slot) node {nullptr, std::forward<key_t>(k)};
+            }
+
+            return std::make_pair(iterator {it->next, this}, true);
         }
 
-        return {nullptr, false};
+        // TODO: decide later about making this permanent
+        throw std::runtime_error(
+            "only ELEMENTS_PER_FIRST_CONTACT_SLOT == 1 is implemented");
     }
 
 public:
-    void insert(const Key& k);
-    void insert(Key&& k);
+    auto insert(const value_type& k) -> std::pair<iterator, bool>
+    {
+        return _insert_impl(k);
+    }
+
+    auto insert(value_type&& k) -> std::pair<iterator, bool>
+    {
+        return _insert_impl(std::move(k));
+    }
 
     void erase(const Key* pos);
     void erase(const Key& k);
@@ -407,8 +484,16 @@ public:
     const Key* end(std::size_t n) const;
     Key*       end(std::size_t n);
 
-    std::size_t bucket_count() const;
-    std::size_t max_bucket_count() const;
+    std::size_t bucket_count() const
+    {
+        return _bucket_count;
+    }
+
+    std::size_t max_bucket_count() const
+    {
+        // FIXME: temp
+        return 256;
+    }
 
     std::size_t bucket_size(std::size_t n) const;
 
@@ -419,8 +504,13 @@ public:
 
     float load_factor() const;
 
-    float max_load_factor() const;
-    void  max_load_factor(float f);
+    float max_load_factor() const
+    {
+        // FIXME: temp
+        return 0.85;
+    }
+
+    void max_load_factor(float f);
 
     void rehash(std::size_t count);
     void reserve(std::size_t count);
