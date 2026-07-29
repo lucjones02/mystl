@@ -399,7 +399,6 @@ private:
     auto _insert_impl(key_t&& k) -> std::pair<iterator, bool>
     {
         const std::size_t bucket_index = bucket(k);
-        const auto        hash_func = std::hash<std::remove_cvref_t<key_t>> {};
 
         if ((_element_count + 1) > max_load_factor() * bucket_count()) {
             const std::size_t new_bucket_count =
@@ -421,6 +420,7 @@ private:
                 new (replacement_slot) node {nullptr, std::forward<key_t>(k)};
             }
 
+            ++_element_count;
             return std::make_pair(iterator {_bucket_lut[bucket_index], this},
                                   true);
         }
@@ -428,13 +428,17 @@ private:
         node* it = _bucket_lut[bucket_index];
         if constexpr (ELEMENTS_PER_FIRST_CONTACT_SLOT == 1) {
 
-            do // while (it->next != nullptr)
-            {
-                if (hash_func(it->key) == hash_func(k)) {
+            while (1) {
+                if (it->key == k) {
                     return std::make_pair(iterator {it, this}, false);
                 }
-                it = it->next == nullptr ? it : it->next;
-            } while (it->next != nullptr);
+
+                if (it->next == nullptr) {
+                    break;
+                }
+
+                it = it->next;
+            }
 
             node* replacement_slot =
                 _get_first_available_slot<area_tag::backup_collision_area>();
@@ -445,10 +449,11 @@ private:
                 ++_backup_collision_end;
             }
             else {
-                _bucket_lut[bucket_index] = replacement_slot;
                 new (replacement_slot) node {nullptr, std::forward<key_t>(k)};
+                it->next = replacement_slot;
             }
 
+            ++_element_count;
             return std::make_pair(iterator {it->next, this}, true);
         }
 
