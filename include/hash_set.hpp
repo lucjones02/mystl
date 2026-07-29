@@ -428,12 +428,13 @@ private:
         node* it = _bucket_lut[bucket_index];
         if constexpr (ELEMENTS_PER_FIRST_CONTACT_SLOT == 1) {
 
-            while (it->next != nullptr) {
+            do // while (it->next != nullptr)
+            {
                 if (hash_func(it->key) == hash_func(k)) {
                     return std::make_pair(iterator {it, this}, false);
                 }
-                it = it->next;
-            }
+                it = it->next == nullptr ? it : it->next;
+            } while (it->next != nullptr);
 
             node* replacement_slot =
                 _get_first_available_slot<area_tag::first_contact_area>();
