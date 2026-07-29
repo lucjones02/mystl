@@ -443,8 +443,10 @@ private:
             node* replacement_slot =
                 _get_first_available_slot<area_tag::backup_collision_area>();
             if (replacement_slot == nullptr) {
-                new (_backup_collision_end)
-                    node {nullptr, std::forward<key_t>(k)};
+                if (_backup_collision_end == _alloc_end) {
+                    return std::make_pair(end(), false);
+                }
+                new (_backup_collision_end) node {nullptr, std::forward<key_t>(k)};
                 it->next = _backup_collision_end;
                 ++_backup_collision_end;
             }
