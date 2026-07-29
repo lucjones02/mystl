@@ -437,7 +437,7 @@ private:
             } while (it->next != nullptr);
 
             node* replacement_slot =
-                _get_first_available_slot<area_tag::first_contact_area>();
+                _get_first_available_slot<area_tag::backup_collision_area>();
             if (replacement_slot == nullptr) {
                 new (_backup_collision_end)
                     node {nullptr, std::forward<key_t>(k)};
